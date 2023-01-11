@@ -71,7 +71,8 @@ class _LoginAppState extends State<LoginApp> {
         appBar: AppBar(
           title: Text('Login'),
         ),
-        body: Form(
+        body: Container(
+          padding: const EdgeInsets.all(22),
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -79,7 +80,7 @@ class _LoginAppState extends State<LoginApp> {
               TextFormField(
                 controller: _channelNameController,
                 decoration: InputDecoration(
-                  hintText: 'Eneter Channel names(Comma',
+                  hintText: 'Enter Channel name',
                 ),
               ),
               TextFormField(
