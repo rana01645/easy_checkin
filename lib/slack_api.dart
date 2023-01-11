@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:isolate';
 import 'dart:math';
 import 'dart:ui';
+import 'package:easy_checkin/location_service_repository.dart';
 import 'package:easy_checkin/slack_repository.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
@@ -163,7 +164,7 @@ class SlackApi {
         'Authorization': bearer,
       },
       body: jsonEncode(<String, String>{
-        'channel': 'rana_checkin',
+        'channel': await LocationServiceRepository().getChannelName(),
         'text': message,
         'thread_ts': await SlackRepository().getThreadTs()
       }),

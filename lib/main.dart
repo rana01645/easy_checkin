@@ -19,18 +19,17 @@ import 'location_service_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final SharedPreferences prefs = await SharedPreferences.getInstance();
-  var name = prefs.getString('name') ?? '';
-  var slackKey = prefs.getString('slack_key') ?? '';
-  var isLoggedIn = name.isNotEmpty && slackKey.isNotEmpty;
+  var channelName = await LocationServiceRepository().getChannelName();
+  var slackKey = await SlackRepository().getSlackKey();
+  var isLoggedIn = channelName.isNotEmpty && slackKey.isNotEmpty;
 
   runApp(MaterialApp(
     debugShowCheckedModeBanner: false,
-    home: isLoggedIn ? MyApp(name: name, slackKey: slackKey) : const LoginApp(),
+    home: isLoggedIn ? MyApp() : const LoginApp(),
   ));
 }
 
-//add login app using name and slack api key
+//add login app using channel_name and slack api key
 class LoginApp extends StatefulWidget {
   const LoginApp({super.key});
 
@@ -40,7 +39,7 @@ class LoginApp extends StatefulWidget {
 
 class _LoginAppState extends State<LoginApp> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
+  final _channelNameController = TextEditingController();
   final _slackKeyController = TextEditingController();
 
   @override
@@ -54,13 +53,13 @@ class _LoginAppState extends State<LoginApp> {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     var name = prefs.getString('name') ?? '';
     var slackKey = prefs.getString('slack_key') ?? '';
-    _nameController.text = name;
+    _channelNameController.text = name;
     _slackKeyController.text = slackKey;
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _channelNameController.dispose();
     _slackKeyController.dispose();
     super.dispose();
   }
@@ -78,9 +77,9 @@ class _LoginAppState extends State<LoginApp> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               TextFormField(
-                controller: _nameController,
+                controller: _channelNameController,
                 decoration: InputDecoration(
-                  hintText: 'Enter your name',
+                  hintText: 'Eneter Channel names(Comma',
                 ),
               ),
               TextFormField(
@@ -94,17 +93,14 @@ class _LoginAppState extends State<LoginApp> {
                 child: ElevatedButton(
                   onPressed: () {
                     //save name and slack api key to shared preferences and start location service
-                    LocationServiceRepository().saveName(_nameController.text);
+                    LocationServiceRepository().saveChannelName(_channelNameController.text);
                     LocationServiceRepository()
                         .saveSlackKey(_slackKeyController.text);
 
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => MyApp(
-                              name: _nameController.text,
-                              slackKey: _slackKeyController.text)),
-                    );
+                          builder: (context) => MyApp()));
                   },
                   child: Text('Submit'),
                 ),
@@ -118,10 +114,8 @@ class _LoginAppState extends State<LoginApp> {
 }
 
 class MyApp extends StatefulWidget {
-  final String name;
-  final String slackKey;
 
-  MyApp({Key? key, required this.name, required this.slackKey})
+  MyApp({Key? key})
       : super(key: key);
 
   @override
