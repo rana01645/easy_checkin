@@ -9,15 +9,29 @@ import 'package:background_locator_2/settings/ios_settings.dart';
 import 'package:background_locator_2/settings/locator_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:location_permissions/location_permissions.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'file_manager.dart';
 import 'location_callback_handler.dart';
 import 'location_service_repository.dart';
 
-void main() => runApp(LoginApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  var name = prefs.getString('name') ?? '';
+  var slackKey = prefs.getString('slack_key') ?? '';
+  var isLoggedIn = name.isNotEmpty && slackKey.isNotEmpty;
+
+  runApp(MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: isLoggedIn ? MyApp(name: name, slackKey: slackKey) : const LoginApp(),
+  ));
+}
 
 //add login app using name and slack api key
 class LoginApp extends StatefulWidget {
+  const LoginApp({super.key});
+
   @override
   _LoginAppState createState() => _LoginAppState();
 }
@@ -26,6 +40,21 @@ class _LoginAppState extends State<LoginApp> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _slackKeyController = TextEditingController();
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    fillData();
+    super.initState();
+  }
+
+  Future<void> fillData() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    var name = prefs.getString('name') ?? '';
+    var slackKey = prefs.getString('slack_key') ?? '';
+    _nameController.text = name;
+    _slackKeyController.text = slackKey;
+  }
 
   @override
   void dispose() {
@@ -62,15 +91,17 @@ class _LoginAppState extends State<LoginApp> {
                 padding: const EdgeInsets.symmetric(vertical: 16.0),
                 child: ElevatedButton(
                   onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
+                    //save name and slack api key to shared preferences and start location service
+                    LocationServiceRepository().saveName(_nameController.text);
+                    LocationServiceRepository().saveSlackKey(_slackKeyController.text);
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
                           builder: (context) => MyApp(
-                            name: _nameController.text,
-                            slackKey: _slackKeyController.text,
-                          ),
-                        ),
-                      );
+                              name: _nameController.text,
+                              slackKey: _slackKeyController.text)),
+                    );
                   },
                   child: Text('Submit'),
                 ),
@@ -175,6 +206,26 @@ class _MyAppState extends State<MyApp> {
         },
       ),
     );
+
+    final signinging = SizedBox(
+      width: double.maxFinite,
+      child: ElevatedButton(
+        child: Text('Signin to slack'),
+        onPressed: () {
+          _signignIn();
+        },
+      ),
+    );
+
+    final signingOut = SizedBox(
+      width: double.maxFinite,
+      child: ElevatedButton(
+        child: Text('Signin out from slack'),
+        onPressed: () {
+          _signignOut();
+        },
+      ),
+    );
     final stop = SizedBox(
       width: double.maxFinite,
       child: ElevatedButton(
@@ -221,7 +272,15 @@ class _MyAppState extends State<MyApp> {
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
-              children: <Widget>[start, stop, clear, status, log],
+              children: <Widget>[
+                signinging,
+                signingOut,
+                start,
+                stop,
+                clear,
+                status,
+                log
+              ],
             ),
           ),
         ),
@@ -249,6 +308,19 @@ class _MyAppState extends State<MyApp> {
     } else {
       // show error
     }
+  }
+
+  void _signignIn() async {
+    final key = widget.slackKey;
+    LocationServiceRepository().signingInToSlack('rana',key);
+
+  }
+
+
+  void _signignOut() async {
+    final key = widget.slackKey;
+    LocationServiceRepository().signingOutFromSlack('rana',key);
+
   }
 
   Future<bool> _checkLocationPermission() async {

@@ -1,9 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:ffi';
 import 'dart:isolate';
 import 'dart:math';
 import 'dart:ui';
+import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:http/http.dart' as http;
 
 import 'package:background_locator_2/location_dto.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'file_manager.dart';
 
@@ -54,11 +60,12 @@ class LocationServiceRepository {
   Future<void> callback(LocationDto locationDto) async {
     print('$_count location in dart: ${locationDto.toString()}');
     //print distance from 23.8371806,90.3683082
-    double distance = calculateDistance(23.8371806, 90.3683082, locationDto.latitude, locationDto.longitude);
+    double distance = calculateDistance(
+        23.8371806, 90.3683082, locationDto.latitude, locationDto.longitude);
     //if distance is less than 500 meter then print at office
-    if(distance < 0.5){
+    if (distance < 0.5) {
       print("At Office ${distance.toStringAsFixed(2)}");
-    }else{
+    } else {
       print("Not At Office ${distance.toStringAsFixed(2)}");
     }
 
@@ -66,7 +73,6 @@ class LocationServiceRepository {
     final SendPort? send = IsolateNameServer.lookupPortByName(isolateName);
     send?.send(locationDto);
     _count++;
-
   }
 
   double calculateDistance(lat1, lon1, lat2, lon2) {
@@ -101,5 +107,168 @@ class LocationServiceRepository {
 
   static String formatLog(LocationDto locationDto) {
     return "${dp(locationDto.latitude, 4)} ${dp(locationDto.longitude, 4)}";
+  }
+
+  Future<void> saveName(String text) async {
+    //save to shared pref
+    final prefs = await SharedPreferences.getInstance();
+
+    // Save an String value to 'action' key.
+    await prefs.setString('name', text);
+  }
+
+  Future<void> saveSlackKey(String text) async {
+    //save to shared pref
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('slack_key', text);
+  }
+
+    //is signed in today
+  Future<bool> isSignedIn() async {
+    print('inside isSignedIn');
+    //save to shared pref
+    final prefs = await SharedPreferences.getInstance();
+    String today = getDate();
+    var signed = prefs.getBool('signed-in-$today') ?? false;
+    print('signed-in-$today : $signed');
+    return signed;
+  }
+
+  Future<void> signIn(String ts) async {
+    //save to shared pref
+    final prefs = await SharedPreferences.getInstance();
+    //today as string
+    String today = getDate();
+    //save the signin time
+    prefs.setString('sign-in-time-$today', getTime());
+    prefs.setBool('signed-in-$today', true);
+    prefs.setString('sign-in-ts-$today', ts);
+
+  }
+
+    //is signed in today
+  Future<bool> isSignedOut() async {
+    //save to shared pref
+    final prefs = await SharedPreferences.getInstance();
+    //todays date as string
+    String today = getDate();
+    return prefs.getBool('signed-out-$today') ?? false;
+  }
+
+  Future<void> signOut() async {
+    //save to shared pref
+    final prefs = await SharedPreferences.getInstance();
+    //today as string
+    String today = getDate();
+
+    print(today);
+    //save the signin time
+    await prefs.setString('sign-out-time-$today', getTime());
+    await prefs.setBool('signed-out-$today', true);
+  }
+
+
+  String getDate(){
+    DateTime dateToday = DateTime.now();
+    String today = dateToday.toString().substring(0,10);
+    return today;
+  }
+
+  String getTime() {
+    DateTime dateToday = DateTime.now();
+    return dateToday.toIso8601String();
+  }
+
+  //get thread ts getThreadTs
+  Future<String> getThreadTs() async {
+    //save to shared pref
+    final prefs = await SharedPreferences.getInstance();
+    //todays date as string
+
+    String today = getDate();
+    String signed = prefs.getString('sign-in-ts-$today') ?? '';
+    return signed;
+  }
+
+
+
+  //send data to slack
+  Future<void> signingInToSlack(name, slackkey) async {
+    //check if signed in today
+    if (await isSignedIn()) {
+      Fluttertoast.showToast(
+          msg: "Already signed in today",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+          fontSize: 16.0);
+      return;
+    }
+
+    //slack api call
+    var bearer = 'Bearer $slackkey';
+    final response = await http.post(
+      Uri.parse('https://slack.com/api/chat.postMessage'),
+      headers: {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Authorization': bearer,
+      },
+      body: jsonEncode(<String, String>{
+        'channel': 'rana_checkin',
+        'text': 'Signing in, $name',
+      }),
+    );
+
+    //convert to json
+    var json = jsonDecode(response.body);
+    if (json['ok'] == true) {
+      //signed in
+      await signOut();
+      Fluttertoast.showToast(msg: "Signed in successfully");
+    } else {
+      Fluttertoast.showToast(msg: 'Unable to sign in, check your key!');
+    }
+  }
+
+  Future<void> signingOutFromSlack(name, slackkey) async {
+    //check if signed in today
+    if (await isSignedOut()) {
+      Fluttertoast.showToast(
+          msg: "Already signed out today",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+          fontSize: 16.0);
+      return;
+    }
+
+    //slack api call
+    var bearer = 'Bearer $slackkey';
+    final response = await http.post(
+      Uri.parse('https://slack.com/api/chat.postMessage'),
+      headers: {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Authorization': bearer,
+      },
+      body: jsonEncode(<String, String>{
+        'channel': 'rana_checkin',
+        'text': 'Signing Out, $name',
+        'thread_ts': await getThreadTs()
+      }),
+    );
+
+    //convert to json
+    var json = jsonDecode(response.body);
+    if (json['ok'] == true) {
+      //signed in
+      signOut();
+      Fluttertoast.showToast(msg: "Signed out successfully");
+    } else {
+      Fluttertoast.showToast(msg: 'Unable to sign out, check your key!');
+    }
   }
 }
