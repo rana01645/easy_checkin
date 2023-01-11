@@ -217,6 +217,16 @@ class _MyAppState extends State<MyApp> {
       ),
     );
 
+    final brb = SizedBox(
+      width: double.maxFinite,
+      child: ElevatedButton(
+        child: Text('BRB'),
+        onPressed: () {
+          _brb();
+        },
+      ),
+    );
+
     final signingOut = SizedBox(
       width: double.maxFinite,
       child: ElevatedButton(
@@ -238,12 +248,9 @@ class _MyAppState extends State<MyApp> {
     final clear = SizedBox(
       width: double.maxFinite,
       child: ElevatedButton(
-        child: Text('Clear Log'),
+        child: const Text('Clear Todays Log(Locally)'),
         onPressed: () {
-          FileManager.clearLogFile();
-          setState(() {
-            logStr = '';
-          });
+          clearLog();
         },
       ),
     );
@@ -274,12 +281,12 @@ class _MyAppState extends State<MyApp> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: <Widget>[
                 signinging,
+                brb,
                 signingOut,
                 start,
                 stop,
                 clear,
                 status,
-                log
               ],
             ),
           ),
@@ -313,14 +320,20 @@ class _MyAppState extends State<MyApp> {
   void _signignIn() async {
     final key = widget.slackKey;
     LocationServiceRepository().signingInToSlack('rana',key);
-
   }
 
+  void _brb() async {
+    final key = widget.slackKey;
+    LocationServiceRepository().sendBRB('rana', key);
+  }
 
   void _signignOut() async {
     final key = widget.slackKey;
     LocationServiceRepository().signingOutFromSlack('rana',key);
+  }
 
+  void clearLog() async {
+    LocationServiceRepository().clearTodaysLog();
   }
 
   Future<bool> _checkLocationPermission() async {

@@ -196,70 +196,49 @@ class LocationServiceRepository {
   Future<void> signingInToSlack(name, slackkey) async {
     //check if signed in today
     if (await isSignedIn()) {
-      Fluttertoast.showToast(
-          msg: "Already signed in today",
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
-          timeInSecForIosWeb: 1,
-          backgroundColor: Colors.red,
-          textColor: Colors.white,
-          fontSize: 16.0);
+      Fluttertoast.showToast(msg: "Already signed in today");
       return;
     }
 
     //slack api call
-    var bearer = 'Bearer $slackkey';
-    final response = await http.post(
-      Uri.parse('https://slack.com/api/chat.postMessage'),
-      headers: {
-        'Content-Type': 'application/json; charset=UTF-8',
-        'Authorization': bearer,
-      },
-      body: jsonEncode(<String, String>{
-        'channel': 'rana_checkin',
-        'text': 'Signing in, $name',
-      }),
-    );
-
+    final response = await sendMessageToSlack('Signing In');
     //convert to json
     var json = jsonDecode(response.body);
     if (json['ok'] == true) {
       //signed in
-      await signOut();
+      await signIn(json['ts']);
       Fluttertoast.showToast(msg: "Signed in successfully");
     } else {
       Fluttertoast.showToast(msg: 'Unable to sign in, check your key!');
     }
   }
 
-  Future<void> signingOutFromSlack(name, slackkey) async {
+  Future<void> sendBRB(name, slackkey) async {
     //check if signed in today
     if (await isSignedOut()) {
-      Fluttertoast.showToast(
-          msg: "Already signed out today",
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
-          timeInSecForIosWeb: 1,
-          backgroundColor: Colors.red,
-          textColor: Colors.white,
-          fontSize: 16.0);
+      Fluttertoast.showToast(msg: "Already signed out today, cannot send other message");
       return;
     }
 
     //slack api call
-    var bearer = 'Bearer $slackkey';
-    final response = await http.post(
-      Uri.parse('https://slack.com/api/chat.postMessage'),
-      headers: {
-        'Content-Type': 'application/json; charset=UTF-8',
-        'Authorization': bearer,
-      },
-      body: jsonEncode(<String, String>{
-        'channel': 'rana_checkin',
-        'text': 'Signing Out, $name',
-        'thread_ts': await getThreadTs()
-      }),
-    );
+    final response = await sendMessageToSlack(':BRB:');
+    //convert to json
+    var json = jsonDecode(response.body);
+    if (json['ok'] == true) {
+      //signed in
+      Fluttertoast.showToast(msg: "Sent BRB successfully");
+    } else {
+      Fluttertoast.showToast(msg: 'Unable to send BRB, check your key!');
+    }
+  }
+
+  Future<void> signingOutFromSlack(name, slackkey) async {
+    //check if signed in today
+    if (await isSignedOut()) {
+      Fluttertoast.showToast(msg: "Already signed out today");
+      return;
+    }
+    final response = await sendMessageToSlack('Signing Out');
 
     //convert to json
     var json = jsonDecode(response.body);
@@ -270,5 +249,40 @@ class LocationServiceRepository {
     } else {
       Fluttertoast.showToast(msg: 'Unable to sign out, check your key!');
     }
+  }
+
+  Future<http.Response> sendMessageToSlack(String message) async {
+    //get the slack key from shared pref
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    var slackKey = prefs.getString('slack_key') ?? '';
+
+    var bearer = 'Bearer $slackKey';
+    final response = await http.post(
+      Uri.parse('https://slack.com/api/chat.postMessage'),
+      headers: {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Authorization': bearer,
+      },
+      body: jsonEncode(<String, String>{
+        'channel': 'rana_checkin',
+        'text': message,
+        'thread_ts': await getThreadTs()
+      }),
+    );
+
+    return response;
+  }
+
+  void clearTodaysLog() {
+    //save to shared pref
+    SharedPreferences.getInstance().then((prefs) {
+      String today = getDate();
+      String time = getTime();
+      prefs.remove('sign-in-time-$time');
+      prefs.remove('signed-in-$today');
+      prefs.remove('sign-in-ts-$today');
+      prefs.remove('sign-out-time-$time');
+      prefs.remove('signed-out-$today');
+    });
   }
 }
