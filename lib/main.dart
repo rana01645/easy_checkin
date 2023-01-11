@@ -186,10 +186,18 @@ class _MyAppState extends State<MyApp> {
       return;
     }
 
+    bool atOffice = await LocationServiceRepository().isAtOffice(data);
+    String notificationText = atOffice ? 'Currently At Office' : 'Not At Office';
+
+    final _isRunning = await BackgroundLocator.isServiceRunning();
+
+    String title = _isRunning ? 'Easy Checking (Running)' : 'Easy Check-in '
+        '(Stopped)';
+
     await BackgroundLocator.updateNotificationText(
-        title: "new location received",
-        msg: "${DateTime.now()}",
-        bigMsg: "${data.latitude}, ${data.longitude}");
+        title: title,
+        msg: notificationText,
+        bigMsg: notificationText);
   }
 
   Future<void> initPlatformState() async {

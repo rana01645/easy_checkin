@@ -59,15 +59,11 @@ class LocationServiceRepository {
   Future<void> callback(LocationDto locationDto) async {
     print('$_count location in dart: ${locationDto.toString()}');
     //print distance from 23.8371806,90.3683082
-    double distance = calculateDistance(
-        23.8371806, 90.3683082, locationDto.latitude, locationDto.longitude);
-    //if distance is less than 500 meter then print at office
-    if (distance < await rangeInKm()) {
-      print("At Office ${distance.toStringAsFixed(2)}");
+
+    if (await isAtOffice(locationDto)) {
       SlackApi().signingInToSlack(silent: true);
     } else {
       SlackApi().signingOutFromSlack(silent: true);
-      print("Not At Office ${distance.toStringAsFixed(2)}");
     }
 
     await setLogPosition(_count, locationDto);
@@ -83,6 +79,19 @@ class LocationServiceRepository {
         c((lat2 - lat1) * p) / 2 +
         c(lat1 * p) * c(lat2 * p) * (1 - c((lon2 - lon1) * p)) / 2;
     return 12742 * asin(sqrt(a));
+  }
+
+  Future<bool> isAtOffice(locationDto) async {
+    double distance = calculateDistance(
+        23.8371806, 90.3683082, locationDto.latitude, locationDto.longitude);
+    //if distance is less than 500 meter then print at office
+    if (distance < await rangeInKm()) {
+      print("At Office ${distance.toStringAsFixed(2)}");
+      return true;
+    } else {
+      print("Not At Office ${distance.toStringAsFixed(2)}");
+      return false;
+    }
   }
 
   static Future<void> setLogLabel(String label) async {

@@ -117,6 +117,13 @@ class SlackApi {
 
   Future<void> signingOutFromSlack({bool silent = false}) async {
     //check if signed in today
+    if(!await SlackRepository().isSignedIn()){
+      if(!silent){
+        Fluttertoast.showToast(msg: "You did not signed in today so unable to "
+            "sign out");
+      }
+      return;
+    }
     if (await SlackRepository().isSignedOut()) {
       if (!silent) {
         Fluttertoast.showToast(msg: "Already signed out today");
