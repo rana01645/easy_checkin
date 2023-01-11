@@ -7,6 +7,8 @@ import 'package:background_locator_2/location_dto.dart';
 import 'package:background_locator_2/settings/android_settings.dart';
 import 'package:background_locator_2/settings/ios_settings.dart';
 import 'package:background_locator_2/settings/locator_settings.dart';
+import 'package:easy_checkin/slack_api.dart';
+import 'package:easy_checkin/slack_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:location_permissions/location_permissions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -93,7 +95,8 @@ class _LoginAppState extends State<LoginApp> {
                   onPressed: () {
                     //save name and slack api key to shared preferences and start location service
                     LocationServiceRepository().saveName(_nameController.text);
-                    LocationServiceRepository().saveSlackKey(_slackKeyController.text);
+                    LocationServiceRepository()
+                        .saveSlackKey(_slackKeyController.text);
 
                     Navigator.push(
                       context,
@@ -128,6 +131,8 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   ReceivePort port = ReceivePort();
 
+  final _range = TextEditingController();
+
   String logStr = '';
   bool isRunning = false;
   LocationDto? lastLocation;
@@ -145,6 +150,10 @@ class _MyAppState extends State<MyApp> {
 
     IsolateNameServer.registerPortWithName(
         port.sendPort, LocationServiceRepository.isolateName);
+
+    LocationServiceRepository()
+        .getRange()
+        .then((value) => _range.text = value.toString());
 
     port.listen(
       (dynamic data) async {
@@ -200,7 +209,7 @@ class _MyAppState extends State<MyApp> {
     final start = SizedBox(
       width: double.maxFinite,
       child: ElevatedButton(
-        child: Text('Start'),
+        child: Text('Start Signing in Based on Location'),
         onPressed: () {
           _onStart();
         },
@@ -210,9 +219,23 @@ class _MyAppState extends State<MyApp> {
     final signinging = SizedBox(
       width: double.maxFinite,
       child: ElevatedButton(
-        child: Text('Signin to slack'),
+        style: ButtonStyle(
+            backgroundColor: MaterialStateProperty.all(Colors.green)),
+        child: Text('Signing in to slack'),
         onPressed: () {
           _signignIn();
+        },
+      ),
+    );
+
+    final remotely = SizedBox(
+      width: double.maxFinite,
+      child: ElevatedButton(
+        style: ButtonStyle(
+            backgroundColor: MaterialStateProperty.all(Colors.green)),
+        child: Text('Signing in remotely to slack'),
+        onPressed: () {
+          _signignInRemotely();
         },
       ),
     );
@@ -227,10 +250,22 @@ class _MyAppState extends State<MyApp> {
       ),
     );
 
+    final back = SizedBox(
+      width: double.maxFinite,
+      child: ElevatedButton(
+        child: Text('Back To Work'),
+        onPressed: () {
+          _btw();
+        },
+      ),
+    );
+
     final signingOut = SizedBox(
       width: double.maxFinite,
       child: ElevatedButton(
-        child: Text('Signin out from slack'),
+        style: ButtonStyle(
+            backgroundColor: MaterialStateProperty.all(Colors.redAccent)),
+        child: Text('Signing out'),
         onPressed: () {
           _signignOut();
         },
@@ -239,7 +274,7 @@ class _MyAppState extends State<MyApp> {
     final stop = SizedBox(
       width: double.maxFinite,
       child: ElevatedButton(
-        child: Text('Stop'),
+        child: Text('Take a break'),
         onPressed: () {
           onStop();
         },
@@ -257,12 +292,12 @@ class _MyAppState extends State<MyApp> {
     String msgStatus = "-";
     if (isRunning != null) {
       if (isRunning) {
-        msgStatus = 'Is running';
+        msgStatus = 'Running';
       } else {
-        msgStatus = 'Is not running';
+        msgStatus = 'Stopped';
       }
     }
-    final status = Text("Status: $msgStatus");
+    final status = Text("Location Check Status: $msgStatus");
 
     final log = Text(
       logStr,
@@ -271,22 +306,62 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('Flutter background Locator'),
+          title: const Text('Easy Check-in'),
         ),
         body: Container(
           width: double.maxFinite,
           padding: const EdgeInsets.all(22),
           child: SingleChildScrollView(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                signinging,
-                brb,
-                signingOut,
-                start,
-                stop,
-                clear,
-                status,
+                Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    children: [
+                      const Padding(
+                          padding: EdgeInsets.all(5.0),
+                          child: Text(
+                            'Slack Easy Checkin!',
+                            textAlign: TextAlign.left,
+                            style: TextStyle(fontSize: 20),
+                          )),
+                      signinging,
+                      remotely,
+                      brb,
+                      back,
+                      signingOut,
+                      clear,
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    children: [
+                      const Padding(
+                          padding: EdgeInsets.all(5.0),
+                          child: Text(
+                            'Automation!',
+                            textAlign: TextAlign.left,
+                            style: TextStyle(fontSize: 20),
+                          )),
+                      const Text('Enter the range from office in Meter',
+                          textAlign: TextAlign.left),
+                      TextFormField(
+                        keyboardType: TextInputType.number,
+                        controller: _range,
+                        decoration: const InputDecoration(
+                          hintText: 'Enter the range from office in meter',
+                        ),
+                      ),
+                      //text input
+                      start,
+                      stop,
+                      status,
+                    ],
+                  ),
+                )
               ],
             ),
           ),
@@ -304,6 +379,8 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _onStart() async {
+    _range.text = _range.text.isEmpty ? '100' : _range.text;
+    LocationServiceRepository().setRange(_range.text);
     if (await _checkLocationPermission()) {
       await _startLocator();
       final _isRunning = await BackgroundLocator.isServiceRunning();
@@ -318,22 +395,27 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _signignIn() async {
-    final key = widget.slackKey;
-    LocationServiceRepository().signingInToSlack('rana',key);
+    SlackApi().signingInToSlack();
+  }
+
+  void _signignInRemotely() async {
+    SlackApi().signingInToSlackRemotely();
   }
 
   void _brb() async {
-    final key = widget.slackKey;
-    LocationServiceRepository().sendBRB('rana', key);
+    SlackApi().sendBRB();
+  }
+
+  void _btw() async {
+    SlackApi().isBackToWork();
   }
 
   void _signignOut() async {
-    final key = widget.slackKey;
-    LocationServiceRepository().signingOutFromSlack('rana',key);
+    SlackApi().signingOutFromSlack();
   }
 
   void clearLog() async {
-    LocationServiceRepository().clearTodaysLog();
+    SlackRepository().clearTodaysLog();
   }
 
   Future<bool> _checkLocationPermission() async {

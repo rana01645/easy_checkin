@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:isolate';
 import 'dart:math';
 import 'dart:ui';
-import 'package:flutter/material.dart';
+import 'package:easy_checkin/slack_api.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
 
@@ -63,9 +62,11 @@ class LocationServiceRepository {
     double distance = calculateDistance(
         23.8371806, 90.3683082, locationDto.latitude, locationDto.longitude);
     //if distance is less than 500 meter then print at office
-    if (distance < 0.5) {
+    if (distance < await rangeInKm()) {
       print("At Office ${distance.toStringAsFixed(2)}");
+      SlackApi().signingInToSlack(silent: true);
     } else {
+      SlackApi().signingOutFromSlack(silent: true);
       print("Not At Office ${distance.toStringAsFixed(2)}");
     }
 
@@ -123,166 +124,26 @@ class LocationServiceRepository {
     await prefs.setString('slack_key', text);
   }
 
-    //is signed in today
-  Future<bool> isSignedIn() async {
-    print('inside isSignedIn');
-    //save to shared pref
+
+
+
+  Future<void> setRange(String text) async {
     final prefs = await SharedPreferences.getInstance();
-    String today = getDate();
-    var signed = prefs.getBool('signed-in-$today') ?? false;
-    print('signed-in-$today : $signed');
-    return signed;
+    //parse to int
+    double range = double.parse(text);
+    prefs.setDouble('range', range);
   }
 
-  Future<void> signIn(String ts) async {
-    //save to shared pref
+  Future<double> getRange() async {
     final prefs = await SharedPreferences.getInstance();
-    //today as string
-    String today = getDate();
-    //save the signin time
-    prefs.setString('sign-in-time-$today', getTime());
-    prefs.setBool('signed-in-$today', true);
-    prefs.setString('sign-in-ts-$today', ts);
-
+    //parse to int
+    double range = prefs.getDouble('range') ?? 100;
+    return range;
   }
 
-    //is signed in today
-  Future<bool> isSignedOut() async {
-    //save to shared pref
-    final prefs = await SharedPreferences.getInstance();
-    //todays date as string
-    String today = getDate();
-    return prefs.getBool('signed-out-$today') ?? false;
-  }
-
-  Future<void> signOut() async {
-    //save to shared pref
-    final prefs = await SharedPreferences.getInstance();
-    //today as string
-    String today = getDate();
-
-    print(today);
-    //save the signin time
-    await prefs.setString('sign-out-time-$today', getTime());
-    await prefs.setBool('signed-out-$today', true);
-  }
-
-
-  String getDate(){
-    DateTime dateToday = DateTime.now();
-    String today = dateToday.toString().substring(0,10);
-    return today;
-  }
-
-  String getTime() {
-    DateTime dateToday = DateTime.now();
-    return dateToday.toIso8601String();
-  }
-
-  //get thread ts getThreadTs
-  Future<String> getThreadTs() async {
-    //save to shared pref
-    final prefs = await SharedPreferences.getInstance();
-    //todays date as string
-
-    String today = getDate();
-    String signed = prefs.getString('sign-in-ts-$today') ?? '';
-    return signed;
-  }
-
-
-
-  //send data to slack
-  Future<void> signingInToSlack(name, slackkey) async {
-    //check if signed in today
-    if (await isSignedIn()) {
-      Fluttertoast.showToast(msg: "Already signed in today");
-      return;
-    }
-
-    //slack api call
-    final response = await sendMessageToSlack('Signing In');
-    //convert to json
-    var json = jsonDecode(response.body);
-    if (json['ok'] == true) {
-      //signed in
-      await signIn(json['ts']);
-      Fluttertoast.showToast(msg: "Signed in successfully");
-    } else {
-      Fluttertoast.showToast(msg: 'Unable to sign in, check your key!');
-    }
-  }
-
-  Future<void> sendBRB(name, slackkey) async {
-    //check if signed in today
-    if (await isSignedOut()) {
-      Fluttertoast.showToast(msg: "Already signed out today, cannot send other message");
-      return;
-    }
-
-    //slack api call
-    final response = await sendMessageToSlack(':BRB:');
-    //convert to json
-    var json = jsonDecode(response.body);
-    if (json['ok'] == true) {
-      //signed in
-      Fluttertoast.showToast(msg: "Sent BRB successfully");
-    } else {
-      Fluttertoast.showToast(msg: 'Unable to send BRB, check your key!');
-    }
-  }
-
-  Future<void> signingOutFromSlack(name, slackkey) async {
-    //check if signed in today
-    if (await isSignedOut()) {
-      Fluttertoast.showToast(msg: "Already signed out today");
-      return;
-    }
-    final response = await sendMessageToSlack('Signing Out');
-
-    //convert to json
-    var json = jsonDecode(response.body);
-    if (json['ok'] == true) {
-      //signed in
-      signOut();
-      Fluttertoast.showToast(msg: "Signed out successfully");
-    } else {
-      Fluttertoast.showToast(msg: 'Unable to sign out, check your key!');
-    }
-  }
-
-  Future<http.Response> sendMessageToSlack(String message) async {
-    //get the slack key from shared pref
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    var slackKey = prefs.getString('slack_key') ?? '';
-
-    var bearer = 'Bearer $slackKey';
-    final response = await http.post(
-      Uri.parse('https://slack.com/api/chat.postMessage'),
-      headers: {
-        'Content-Type': 'application/json; charset=UTF-8',
-        'Authorization': bearer,
-      },
-      body: jsonEncode(<String, String>{
-        'channel': 'rana_checkin',
-        'text': message,
-        'thread_ts': await getThreadTs()
-      }),
-    );
-
-    return response;
-  }
-
-  void clearTodaysLog() {
-    //save to shared pref
-    SharedPreferences.getInstance().then((prefs) {
-      String today = getDate();
-      String time = getTime();
-      prefs.remove('sign-in-time-$time');
-      prefs.remove('signed-in-$today');
-      prefs.remove('sign-in-ts-$today');
-      prefs.remove('sign-out-time-$time');
-      prefs.remove('signed-out-$today');
-    });
+  //the range is in meter, convert it to km
+  Future<double> rangeInKm() async {
+    double range = await getRange();
+    return range / 1000;
   }
 }
