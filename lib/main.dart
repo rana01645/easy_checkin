@@ -14,9 +14,82 @@ import 'file_manager.dart';
 import 'location_callback_handler.dart';
 import 'location_service_repository.dart';
 
-void main() => runApp(MyApp());
+void main() => runApp(LoginApp());
+
+//add login app using name and slack api key
+class LoginApp extends StatefulWidget {
+  @override
+  _LoginAppState createState() => _LoginAppState();
+}
+
+class _LoginAppState extends State<LoginApp> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _slackKeyController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _slackKeyController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        appBar: AppBar(
+          title: Text('Login'),
+        ),
+        body: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              TextFormField(
+                controller: _nameController,
+                decoration: InputDecoration(
+                  hintText: 'Enter your name',
+                ),
+              ),
+              TextFormField(
+                controller: _slackKeyController,
+                decoration: InputDecoration(
+                  hintText: 'Enter your slack api key',
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                child: ElevatedButton(
+                  onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => MyApp(
+                            name: _nameController.text,
+                            slackKey: _slackKeyController.text,
+                          ),
+                        ),
+                      );
+                  },
+                  child: Text('Submit'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class MyApp extends StatefulWidget {
+  final String name;
+  final String slackKey;
+
+  MyApp({Key? key, required this.name, required this.slackKey})
+      : super(key: key);
+
   @override
   _MyAppState createState() => _MyAppState();
 }
@@ -202,17 +275,17 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  Future<void> _startLocator() async{
+  Future<void> _startLocator() async {
     Map<String, dynamic> data = {'countInit': 1};
-    return await BackgroundLocator.registerLocationUpdate(LocationCallbackHandler.callback,
+    return await BackgroundLocator.registerLocationUpdate(
+        LocationCallbackHandler.callback,
         initCallback: LocationCallbackHandler.initCallback,
         initDataCallback: data,
         disposeCallback: LocationCallbackHandler.disposeCallback,
         iosSettings: const IOSSettings(
             accuracy: LocationAccuracy.NAVIGATION,
             distanceFilter: 0,
-            stopWithTerminate: true
-        ),
+            stopWithTerminate: true),
         autoStop: false,
         androidSettings: const AndroidSettings(
             accuracy: LocationAccuracy.NAVIGATION,
