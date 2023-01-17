@@ -12,6 +12,7 @@ import 'package:easy_checkin/slack_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:location_permissions/location_permissions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:slack_login_button/slack_login_button.dart';
 
 import 'file_manager.dart';
 import 'location_callback_handler.dart';
@@ -66,47 +67,56 @@ class _LoginAppState extends State<LoginApp> {
 
   @override
   Widget build(BuildContext context) {
+    const clientId = '755293860769.4652541925731';
+    const clientSecret = '29b567535e47739fb8edf34b9691cb27';
+    final scope = ['chat:write:user', 'users.profile:write', 'channels:read','groups:read'];
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(
           title: Text('Login'),
         ),
-        body: Container(
-          padding: const EdgeInsets.all(22),
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              TextFormField(
-                controller: _channelNameController,
-                decoration: InputDecoration(
-                  hintText: 'Enter Channel name',
-                ),
-              ),
-              TextFormField(
-                controller: _slackKeyController,
-                decoration: InputDecoration(
-                  hintText: 'Enter your slack api key',
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16.0),
-                child: ElevatedButton(
-                  onPressed: () {
-                    //save name and slack api key to shared preferences and start location service
-                    LocationServiceRepository().saveChannelName(_channelNameController.text);
-                    LocationServiceRepository()
-                        .saveSlackKey(_slackKeyController.text);
-
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => MyApp()));
-                  },
-                  child: Text('Submit'),
-                ),
-              ),
-            ],
+        body: Center(
+          child: SlackLoginButton(
+            clientId,
+            clientSecret,
+            scope,
+            (token) {
+              LocationServiceRepository()
+                  .saveSlackKey(token?.accessToken ?? '');
+              //get all channels and show in dropdown
+              SlackApi().getAllChannels().then((channels) {
+                print(channels);
+                //show the channels in dropdown
+                if (channels.isNotEmpty) {
+                  //save the channel name
+                  showDialog(
+                      context: context,
+                      builder: (context) {
+                        return AlertDialog(
+                          title: const Text('Select Channel'),
+                          content: DropdownButton<String>(
+                            items: channels
+                                    ?.map((e) => DropdownMenuItem<String>(
+                                          value: e['name'],
+                                          child: Text(e['name']),
+                                        ))
+                                    .toList() ??
+                                [],
+                            onChanged: (value) {
+                              LocationServiceRepository()
+                                  .saveChannelName(value ?? '');
+                              Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) => MyApp()));
+                            },
+                          ),
+                        );
+                      });
+                }
+              });
+              print(token?.accessToken);
+            },
           ),
         ),
       ),
@@ -115,9 +125,7 @@ class _LoginAppState extends State<LoginApp> {
 }
 
 class MyApp extends StatefulWidget {
-
-  MyApp({Key? key})
-      : super(key: key);
+  MyApp({Key? key}) : super(key: key);
 
   @override
   _MyAppState createState() => _MyAppState();
@@ -182,17 +190,18 @@ class _MyAppState extends State<MyApp> {
     }
 
     bool atOffice = await LocationServiceRepository().isAtOffice(data);
-    String notificationText = atOffice ? 'Currently At Office' : 'Not At Office';
+    String notificationText =
+        atOffice ? 'Currently At Office' : 'Not At Office';
 
     final _isRunning = await BackgroundLocator.isServiceRunning();
 
-    String title = _isRunning ? 'Easy Checking (Running)' : 'Easy Check-in '
-        '(Stopped)';
+    String title = _isRunning
+        ? 'Easy Checking (Running)'
+        : 'Easy Check-in '
+            '(Stopped)';
 
     await BackgroundLocator.updateNotificationText(
-        title: title,
-        msg: notificationText,
-        bigMsg: notificationText);
+        title: title, msg: notificationText, bigMsg: notificationText);
   }
 
   Future<void> initPlatformState() async {
@@ -286,9 +295,18 @@ class _MyAppState extends State<MyApp> {
     final clear = SizedBox(
       width: double.maxFinite,
       child: ElevatedButton(
-        child: const Text('Clear Todays Log(Locally)'),
+        child: const Text('Clear Today\'s Log(Locally)'),
         onPressed: () {
           clearLog();
+        },
+      ),
+    );
+    final clearLogin = SizedBox(
+      width: double.maxFinite,
+      child: ElevatedButton(
+        child: const Text('Logout'),
+        onPressed: () {
+          logout();
         },
       ),
     );
@@ -335,6 +353,7 @@ class _MyAppState extends State<MyApp> {
                       back,
                       signingOut,
                       clear,
+                      clearLogin
                     ],
                   ),
                 ),
@@ -419,6 +438,12 @@ class _MyAppState extends State<MyApp> {
 
   void clearLog() async {
     SlackRepository().clearTodaysLog();
+  }
+
+  void logout() async {
+    SlackRepository().logout();
+    //go to login page
+    main();
   }
 
   Future<bool> _checkLocationPermission() async {

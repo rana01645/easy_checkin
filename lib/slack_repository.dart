@@ -121,4 +121,13 @@ class SlackRepository {
       prefs.remove('remote-status-$today');
     });
   }
+
+
+  //clear login
+  Future<void> logout() async {
+    clearTodaysLog();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('slack_key', '');
+    await prefs.setString('channel_name', '');
+  }
 }

@@ -194,4 +194,26 @@ class SlackApi {
 
     return response;
   }
+
+  //get all the channels from https://slack.com/api/conversations.list
+  Future<List> getAllChannels() async {
+     var slackKey = await SlackRepository().getSlackKey();
+
+     var bearer = 'Bearer $slackKey';
+     final response = await http.post(
+       Uri.parse('https://slack.com/api/conversations.list'),
+       headers: {
+         'Content-Type': 'application/json; charset=UTF-8',
+         'Authorization': bearer,
+       },
+     );
+
+     //json decode response
+      var json = jsonDecode(response.body);
+      //get the channels array
+      var channels = json['channels'];
+      return channels;
+
+  }
+
 }

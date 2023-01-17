@@ -3,6 +3,7 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  slack_login_button
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
