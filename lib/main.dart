@@ -10,6 +10,7 @@ import 'package:background_locator_2/settings/locator_settings.dart';
 import 'package:easy_checkin/slack_api.dart';
 import 'package:easy_checkin/slack_repository.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:location_permissions/location_permissions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slack_login_button/slack_login_button.dart';
@@ -23,6 +24,7 @@ Future<void> main() async {
   var channelName = await LocationServiceRepository().getChannelName();
   var slackKey = await SlackRepository().getSlackKey();
   var isLoggedIn = channelName.isNotEmpty && slackKey.isNotEmpty;
+  await dotenv.load(fileName: ".env"  //path to your .env file);
 
   runApp(MaterialApp(
     debugShowCheckedModeBanner: false,
@@ -67,8 +69,8 @@ class _LoginAppState extends State<LoginApp> {
 
   @override
   Widget build(BuildContext context) {
-    const clientId = '755293860769.4652541925731';
-    const clientSecret = '29b567535e47739fb8edf34b9691cb27';
+    const clientId = dotenv.env['SLACK_CLIENT_ID'];
+    const clientSecret = dotenv.env['SLACK_CLIENT_SECRET'];
     final scope = ['chat:write:user', 'users.profile:write', 'channels:read','groups:read'];
     return MaterialApp(
       home: Scaffold(
@@ -405,6 +407,7 @@ class _MyAppState extends State<MyApp> {
     LocationServiceRepository().setRange(_range.text);
     if (await _checkLocationPermission()) {
       await _startLocator();
+      //check location permission
       final _isRunning = await BackgroundLocator.isServiceRunning();
 
       setState(() {
