@@ -42,6 +42,20 @@ class SlackRepository {
     prefs.setString('sign-in-ts-$today', ts);
   }
 
+  //get diff from sign-in-time-$today and now in hours and minutes
+  Future<String> getWorkingTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    //today as string
+    String today = getDate();
+    //get the signin time
+    String signInTime = prefs.getString('sign-in-time-$today') ?? '';
+    //get the current time
+    String currentTime = getTime();
+    //get the diff
+    String diff = getDiff(signInTime, currentTime);
+    return diff;
+  }
+
   //set remote status
   Future<void> setRemoteStatus() async {
     //save to shared pref
@@ -149,5 +163,17 @@ class SlackRepository {
     final prefs = await SharedPreferences.getInstance();
     var slackKey = prefs.getString('slack_key') ?? '';
     return slackKey;
+  }
+
+  String getDiff(String signInTime, String currentTime) {
+    //get the diff
+    DateTime signIn = DateTime.parse(signInTime);
+    DateTime current = DateTime.parse(currentTime);
+    Duration diff = current.difference(signIn);
+    //get the diff in hours and minutes
+    int hours = diff.inHours;
+    int minutes = diff.inMinutes - (hours * 60);
+    String diffString = '$hours hours $minutes minutes';
+    return diffString;
   }
 }
