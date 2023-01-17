@@ -345,7 +345,7 @@ class _MyAppState extends State<MyApp> {
                       const Padding(
                           padding: EdgeInsets.all(5.0),
                           child: Text(
-                            'Automation!',
+                            'Automation!(Beta)',
                             textAlign: TextAlign.left,
                             style: TextStyle(fontSize: 20),
                           )),
