@@ -11,7 +11,8 @@ import 'package:easy_checkin/slack_api.dart';
 import 'package:easy_checkin/slack_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:location_permissions/location_permissions.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:slack_login_button/slack_login_button.dart';
 
@@ -21,10 +22,10 @@ import 'location_service_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  var channelName = await LocationServiceRepository().getChannelName();
+  var channelName = await SlackRepository().getChannelName();
   var slackKey = await SlackRepository().getSlackKey();
   var isLoggedIn = channelName.isNotEmpty && slackKey.isNotEmpty;
-  await dotenv.load(fileName: ".env"  //path to your .env file);
+  await dotenv.load(fileName: ".env");  //path to your .env file);
 
   runApp(MaterialApp(
     debugShowCheckedModeBanner: false,
@@ -41,36 +42,16 @@ class LoginApp extends StatefulWidget {
 }
 
 class _LoginAppState extends State<LoginApp> {
-  final _formKey = GlobalKey<FormState>();
-  final _channelNameController = TextEditingController();
-  final _slackKeyController = TextEditingController();
 
   @override
   void initState() {
-    // TODO: implement initState
-    fillData();
     super.initState();
-  }
-
-  Future<void> fillData() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    var name = prefs.getString('name') ?? '';
-    var slackKey = prefs.getString('slack_key') ?? '';
-    _channelNameController.text = name;
-    _slackKeyController.text = slackKey;
-  }
-
-  @override
-  void dispose() {
-    _channelNameController.dispose();
-    _slackKeyController.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    const clientId = dotenv.env['SLACK_CLIENT_ID'];
-    const clientSecret = dotenv.env['SLACK_CLIENT_SECRET'];
+    var clientId = dotenv.env['SLACK_CLIENT_ID'];
+    var clientSecret = dotenv.env['SLACK_CLIENT_SECRET'];
     final scope = ['chat:write:user', 'users.profile:write', 'channels:read','groups:read'];
     return MaterialApp(
       home: Scaffold(
@@ -79,12 +60,11 @@ class _LoginAppState extends State<LoginApp> {
         ),
         body: Center(
           child: SlackLoginButton(
-            clientId,
-            clientSecret,
+            clientId!,
+            clientSecret!,
             scope,
             (token) {
-              LocationServiceRepository()
-                  .saveSlackKey(token?.accessToken ?? '');
+              SlackRepository().saveSlackKey(token?.accessToken ?? '');
               //get all channels and show in dropdown
               SlackApi().getAllChannels().then((channels) {
                 print(channels);
@@ -105,8 +85,7 @@ class _LoginAppState extends State<LoginApp> {
                                     .toList() ??
                                 [],
                             onChanged: (value) {
-                              LocationServiceRepository()
-                                  .saveChannelName(value ?? '');
+                              SlackRepository().saveChannelName(value ?? '');
                               Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -415,6 +394,17 @@ class _MyAppState extends State<MyApp> {
         lastLocation = null;
       });
     } else {
+      //toast
+      Fluttertoast.showToast(
+          msg: "Please allow location permission to run the automation!",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+          fontSize: 16.0);
+
+      openAppSettings();
       // show error
     }
   }
@@ -450,27 +440,25 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<bool> _checkLocationPermission() async {
-    final access = await LocationPermissions().checkPermissionStatus();
-    switch (access) {
-      case PermissionStatus.unknown:
-      case PermissionStatus.denied:
-      case PermissionStatus.restricted:
-        final permission = await LocationPermissions().requestPermissions(
-          permissionLevel: LocationPermissionLevel.locationAlways,
-        );
-        if (permission == PermissionStatus.granted) {
+    final access = await Permission.location.serviceStatus.isEnabled;
+    if (access) {
+      var status = await Permission.location.status;
+      if (status.isGranted) {
+        return true;
+      } else {
+        status = await Permission.location.request();
+        if (status.isGranted) {
           return true;
         } else {
-          return false;
+          Map<Permission, PermissionStatus> statuses = await [
+            Permission.location,
+          ].request();
+          return statuses[Permission.location] == PermissionStatus.granted;
         }
-        break;
-      case PermissionStatus.granted:
-        return true;
-        break;
-      default:
-        return false;
-        break;
+      }
+
     }
+    return false;
   }
 
   Future<void> _startLocator() async {

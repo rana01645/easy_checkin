@@ -164,7 +164,7 @@ class SlackApi {
         'Authorization': bearer,
       },
       body: jsonEncode(<String, String>{
-        'channel': await LocationServiceRepository().getChannelName(),
+        'channel': await SlackRepository().getChannelName(),
         'text': message,
         'thread_ts': await SlackRepository().getThreadTs()
       }),

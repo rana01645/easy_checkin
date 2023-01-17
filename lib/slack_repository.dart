@@ -13,12 +13,14 @@ import 'file_manager.dart';
 
 class SlackRepository {
   static SlackRepository _instance = SlackRepository._();
+
   SlackRepository._();
 
   factory SlackRepository() {
     return _instance;
   }
- //is signed in today
+
+  //is signed in today
   Future<bool> isSignedIn() async {
     print('inside isSignedIn');
     final prefs = await SharedPreferences.getInstance();
@@ -79,16 +81,9 @@ class SlackRepository {
     await prefs.setBool('signed-out-$today', true);
   }
 
-    Future<String> getSlackKey() async {
-    final prefs = await SharedPreferences.getInstance();
-    var slackKey = prefs.getString('slack_key') ?? '';
-    return slackKey;
-  }
-
-
-  String getDate(){
+  String getDate() {
     DateTime dateToday = DateTime.now();
-    String today = dateToday.toString().substring(0,10);
+    String today = dateToday.toString().substring(0, 10);
     return today;
   }
 
@@ -122,12 +117,37 @@ class SlackRepository {
     });
   }
 
-
   //clear login
   Future<void> logout() async {
     clearTodaysLog();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('slack_key', '');
     await prefs.setString('channel_name', '');
+  }
+
+  Future<void> saveChannelName(String text) async {
+    //save to shared pref
+    final prefs = await SharedPreferences.getInstance();
+
+    // Save an String value to 'action' key.
+    await prefs.setString('channel_name', text);
+  }
+
+  //get channel name from shared pref
+  Future<String> getChannelName() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('channel_name') ?? '';
+  }
+
+  Future<void> saveSlackKey(String text) async {
+    //save to shared pref
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('slack_key', text);
+  }
+
+  Future<String> getSlackKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    var slackKey = prefs.getString('slack_key') ?? '';
+    return slackKey;
   }
 }

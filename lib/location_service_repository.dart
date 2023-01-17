@@ -119,26 +119,6 @@ class LocationServiceRepository {
     return "${dp(locationDto.latitude, 4)} ${dp(locationDto.longitude, 4)}";
   }
 
-  Future<void> saveChannelName(String text) async {
-    //save to shared pref
-    final prefs = await SharedPreferences.getInstance();
-
-    // Save an String value to 'action' key.
-    await prefs.setString('channel_name', text);
-  }
-
-  //get channel name from shared pref
-  Future<String> getChannelName() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('channel_name') ?? '';
-  }
-
-  Future<void> saveSlackKey(String text) async {
-    //save to shared pref
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('slack_key', text);
-  }
-
 
 
 
