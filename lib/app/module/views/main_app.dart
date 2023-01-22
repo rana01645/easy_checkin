@@ -14,9 +14,9 @@ import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import '../../location_service_repository.dart';
-import '../../file_manager.dart';
-import '../../location_callback_handler.dart';
+import '../../../location_callback_handler.dart';
+import '../../../location_service_repository.dart';
+import '../../../file_manager.dart';
 
 class MyApp extends StatefulWidget {
   MyApp({Key? key}) : super(key: key);
