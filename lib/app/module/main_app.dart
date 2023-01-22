@@ -11,16 +11,12 @@ import 'package:easy_checkin/main.dart';
 import 'package:easy_checkin/slack_api.dart';
 import 'package:easy_checkin/slack_repository.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:slack_login_button/slack_login_button.dart';
 
 import '../../location_service_repository.dart';
 import '../../file_manager.dart';
 import '../../location_callback_handler.dart';
-import '../../location_service_repository.dart';
 
 class MyApp extends StatefulWidget {
   MyApp({Key? key}) : super(key: key);
